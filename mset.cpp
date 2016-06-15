@@ -216,6 +216,6 @@ void Cmset::setColorMap()
 	}
 	int dark = 256 - 256 * maxIntensity / 100;
 	int light = 256 - dark;
-	m_colorMap[m_threshold] = RGB(dark, dark, dark);
-	//m_colorMap[m_threshold] = RGB(light, light, light);
+	//m_colorMap[m_threshold] = RGB(dark, dark, dark);
+	m_colorMap[m_threshold] = RGB(light, light, light);
 }
