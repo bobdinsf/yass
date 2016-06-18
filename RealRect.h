@@ -19,7 +19,9 @@ public:
 	// 
 	// p defines the size of pixel.   
 
-	RealRect(int _w = 0, int _h = 0,double _x0 = 0.0,double _y0 = 0.0, double _x1 = 0.0, double _y1 = 0.0) 
+	RealRect(int _w = 0, int _h = 0,
+		double _x0 = 0.0,double _y0 = 0.0, 
+		double _x1 = 0.0, double _y1 = 0.0) 
 		: w(_w),h(_h),x0(_x0),y0(_y0),x1(_x1),y1(_y1) 
 	{
 		if (x0 > x1)		swap(x0,x1);

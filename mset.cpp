@@ -1,10 +1,14 @@
 #include "stdafx.h"
+#include "yass.h"
 const int Cmset::maxIntensity = 100;  // % of color intensity to use. 
+const int Cmset::nInitWidth = 500;
+const int Cmset::nInitLength = 500;
 void Cmset::init()	
 {
-	m_counts = new long[m_rect.area()];
-	compute();
+	reallocTheCounts();
+	dprintf(L"m_counts allocated for %d pixels at %x", m_rect.area(), m_counts);
 	m_threshold = 100;
+	compute();
 	setColorMap();
 	m_history.empty();
 	m_histIndex = m_history.begin();
@@ -28,9 +32,12 @@ Cmset::~Cmset()
 }
 void Cmset::resize(int width, int length)
 {
+	if (m_rect.width() == width && m_rect.length() == length)
+		return;  // Mset size if OK.
 	m_rect.setSize(width,length);
 	delete [] m_counts;
-	m_counts = new long[m_rect.area()];
+	reallocTheCounts();
+	dprintf(L"m_counts allocated for %d pixels at %x", m_rect.area(), m_counts);
 	compute();
 }
 HDC Cmset::GetBitmap(HDC& hdc)
@@ -40,11 +47,15 @@ HDC Cmset::GetBitmap(HDC& hdc)
 	m_hbmmz = CreateBitmap(w,l,1,32,NULL);
 	HDC hdcmz = CreateCompatibleDC(hdc);
 	HGDIOBJ retVal = SelectObject(hdcmz, m_hbmmz);
-	for (int j = l-1; j >= 0; --j)
+	for (int j = 0; j < l; ++j)  // Outer loop is rows
 	{
-		for (int i = 0; i < w; ++i)
+		for (int i = 0; i < w; ++i) // Inner loop is columns
 		{
-			SetPixel(hdcmz,i,j, m_colorMap[m_counts[i*l + j]]);
+			long lVal = m_counts[j*w + i];
+			int jBitMap = l - j - 1;
+			SetPixel(hdcmz,
+				     i, jBitMap,
+				     m_colorMap[lVal]);
 		}
 	}
 	return hdcmz;
@@ -112,31 +123,157 @@ void Cmset::copyPrivateData(const Cmset& rhs)
 {
 	m_rect = rhs.m_rect;
 	m_threshold = rhs.m_threshold;
-	m_counts = new long[m_rect.area()];
+	reallocTheCounts();
 	memcpy(m_counts,rhs.m_counts,m_rect.area()*sizeof(long));
 	m_history = rhs.m_history;
 }
-
-
-
+static struct WorkerData
+{
+	WorkerData() : r(), bNewThresh(false), pMSet(0), x(0), y(0), w(0), l(0) {}
+	WorkerData(RealRect rect, bool b = false, Cmset* p = 0) : r(rect), bNewThresh(b), pMSet(p) {}
+	RealRect r;
+	bool bNewThresh;
+	Cmset* pMSet;
+	int x;
+	int y;
+	int w;
+	int l;
+} wData;
+DWORD WINAPI TFunc(LPVOID lpParam)
+{
+	WorkerData* pParams = (WorkerData*)lpParam;
+	pParams->pMSet->computeWorker(pParams->r, pParams->bNewThresh,
+		pParams->x,pParams->y,pParams->w,pParams->l);
+	return 0;
+}
 void Cmset::compute(long newThreshold)
 {
 	bool bNewThresh = (newThreshold > 0);
 	if (!bNewThresh)
 		newThreshold = m_threshold;
-	double step = m_rect.pxlWidth();
+	m_step = m_rect.pxlWidth();
+
+	DWORD dwThreadID;
+	wData.r = m_rect;
+	wData.bNewThresh = bNewThresh;
+	wData.pMSet = this;
+	//wData.x = 0;
+	//wData.y = 0;
+	//wData.w = m_rect.width();
+	//wData.l = m_rect.length();
+	wData.x = m_rect.width() / 4;
+	wData.y = m_rect.length() / 4;
+	wData.w = m_rect.width() / 2;
+	wData.l = m_rect.length() / 2;
+
+	WorkerData* p = &wData;
+	dprintf(L"Creating worker thread");
+	HANDLE hThread = 
+		CreateThread(
+			NULL,
+			0,
+			TFunc,
+			p,
+			0,
+			&dwThreadID);
+	WaitForSingleObject(hThread, INFINITE);
+	dprintf(L"Worker thread complete.");
+	//computeWorker(m_rect, bNewThresh);
+}
+inline long Cmset::value(double& nReal, double& nImag)
+{
+	//complex<double> c(nReal,nImag);
+	//complex<double> z(0,0);
+	double a, b, c, d, a_plus_b, nexta;
+	a = 0;
+	b = 0;
+	c = nReal;
+	d = nImag;
+	long n = 0;
+	do
+	{
+		//We need to compute:  z = z*z + c;
+		//
+		// Let z = a + bi
+		// and c = c + di
+		// so we need    (a + bi)(a + bi) + (c + di)
+		//         or    a^2 + 2abi - b^2 + c + di
+		//         or    a^2 - b^2 + c + (2ab + d)i
+		//         or    (a + b)(a - b) + c + (2ab + d)i
+		//
+		__asm
+		{
+			fld QWORD PTR a
+			fadd QWORD PTR b              // a + b
+			fstp QWORD PTR a_plus_b
+			fld QWORD PTR a
+			fsub QWORD PTR b              // a - b
+			fmul QWORD PTR a_plus_b       // (a - b)(a + b)
+			fadd QWORD PTR c              // (a - b)(a + b) + c
+			fstp QWORD PTR nexta
+			fld1
+			fld1
+			fadd                          // 2
+			fmul QWORD PTR a              // 2a
+			fmul QWORD PTR b              // 2ab
+			fadd QWORD PTR d              // 2ab + d
+			fstp QWORD PTR b
+		}
+		a = nexta;
+
+	} while (a*a + b*b < 4 && ++n < m_threshold);
+	//if (n == m_threshold)
+	//{
+	//	a = 0;
+	//}
+	return n;
+}
+void Cmset::computeWorker(RealRect r, bool bNewThresh,
+	int x, int y, int w, int l)
+{
+	double fReal;
+	double fImag;
+	double y0 = r.getY0();
+	double x0 = r.getX0();
+	int ix, iy;
+	int stopX = x + w;
+	int stopY = y + l;
+	for (fImag = y0 + y*m_step, iy = y; iy < stopY; ++iy, fImag += m_step)
+	{
+		for (fReal = x0 + x*m_step, ix = x; ix < stopX; ++ix, fReal += m_step)
+		{
+			long n = value(fReal, fImag);
+			if (n == m_threshold)
+			{
+				int stop = 0;
+			}
+			size_t index = iy*m_rect.width() + ix;
+			m_counts[index] = n;
+		}
+	}
+
+}
+
+#if 0
+void /*Cmset::computeWorker*/_f(RealRect r, bool bNewThresh,
+	int x, int y, int w, int l)
+{
+	dprintf(L"computeWorker([%d,%d],%d)", r.width(), r.length(), bNewThresh );
+	dprintf(L"m_counts = %x", m_counts);
+
 	int i,j;
 	double nReal;
 	double nImag;
-	for (j = m_rect.length()-1, nImag = m_rect.getY0();
-			j >= 0;
-			--j, nImag += step)
+	for (j = y+l, nImag = r.getY0()+((y+l)*m_step);
+			j >= y;
+			--j, nImag += m_step)
 	{
-		for (i = 0, nReal = m_rect.getX0();
-				i < m_rect.width();
-				++i, nReal += step)
+		for (i = x, nReal = r.getX0()+(x*m_step);
+				i < x+w;
+				++i, nReal += m_step)
 		{
-			int countsIndex = i*m_rect.length()+j;
+			//dprintf(L"%d, %d", i, j);
+			int countsIndex = i*r.length()+j;
 			if (bNewThresh && m_counts[countsIndex] < m_threshold)
 				continue;
 			//complex<double> c(nReal,nImag);
@@ -178,15 +315,17 @@ void Cmset::compute(long newThreshold)
 				}
 				a = nexta;
 					
-			} while ( a*a + b*b < 4 && ++n < newThreshold );
-			if (n == newThreshold)
+			} while ( a*a + b*b < 4 && ++n < m_threshold);
+			if (n == m_threshold)
 			{
 				a = 0;
 			}
+			dprintf(L"m_counts[%d, %d]=%d %s", i, j, n, n==m_threshold?"<---------":"");
 			m_counts[countsIndex] = n;
 		}
 	}
 }
+#endif
 void Cmset::setColorMap()
 {
 	int r1,g1,b1;
