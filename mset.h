@@ -39,30 +39,30 @@ public:
 	void next();
 	void computeWorker(RealRect r, bool bNewThresh,
 		int x, int y, int w, int l);
-private:
+	void SetWindowHandle(HWND h);
+	void decrementNCompThreads() { if (m_nComputeThreads > 0) --m_nComputeThreads; }
+	int getNComputeThreads() { return m_nComputeThreads;  }
+	void compute(long newThreshold = -1);
 
+private:
+	
 	// Parameters for the area of the complex plane to be analyzed.
+	HWND m_hWnd;
+	int m_nComputeThreads;
 	RealRect m_rect;
 	list<RealRect> m_history;
 	list<RealRect>::iterator m_histIndex;
-//	complex<double> ll;        // lower left corner.
-//	complex<double> ur;        // upper right corner.
-//	int w,l;           // vertical and horizontal resolution
 	long m_threshold;        // how many itteration to perform before deciding that point is in the set.
 	long* m_counts;
 	double m_step;
 	COLORREF* m_colorMap;
 	HBITMAP m_hbmmz;
+	static const int m_timerID;
 	static const int maxIntensity;
-	void reallocTheCounts()
-	{
-		int nPixels = m_rect.area();
-		m_counts = new long[nPixels];
-		memset(m_counts, 0, nPixels * sizeof(long));
-	}
+	void reallocTheCounts();
+	bool bRefreshTimerRunning;
 	void init();
 	void copyPrivateData(const Cmset& rhs);
-	void compute(long newThreshold = -1);
 	long value(double& nReal, double& nImag);
 	void setColorMap(); 
 };

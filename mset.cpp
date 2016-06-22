@@ -1,17 +1,24 @@
 #include "stdafx.h"
 #include "yass.h"
 const int Cmset::maxIntensity = 100;  // % of color intensity to use. 
-const int Cmset::nInitWidth = 500;
-const int Cmset::nInitLength = 500;
+const int Cmset::nInitWidth = 1000;
+const int Cmset::nInitLength = 1000;
+const int Cmset::m_timerID = 5;
 void Cmset::init()	
 {
+	m_nComputeThreads = 0;
 	reallocTheCounts();
 	dprintf(L"m_counts allocated for %d pixels at %x", m_rect.area(), m_counts);
 	m_threshold = 100;
-	compute();
 	setColorMap();
 	m_history.empty();
 	m_histIndex = m_history.begin();
+	bRefreshTimerRunning = false;
+}
+
+void Cmset::SetWindowHandle(HWND hWnd)
+{
+	m_hWnd = hWnd;
 }
 Cmset::Cmset(const Cmset& src)
 {
@@ -38,7 +45,6 @@ void Cmset::resize(int width, int length)
 	delete [] m_counts;
 	reallocTheCounts();
 	dprintf(L"m_counts allocated for %d pixels at %x", m_rect.area(), m_counts);
-	compute();
 }
 HDC Cmset::GetBitmap(HDC& hdc)
 {
@@ -64,11 +70,9 @@ void Cmset::zoom(RECT zrect)
 {
 	m_history.push_back(m_rect);
 	m_rect.zoom(zrect.left,zrect.right,zrect.top,zrect.bottom);
-	compute();
 }
 void Cmset::SetThreshold(long n)
 {
-	compute(n);
 	m_threshold = n;
 	setColorMap();
 }
@@ -80,8 +84,6 @@ void Cmset::set(double x0, double y0, double x1, double y1)
 	m_rect.setX1(x1);
 	m_rect.setY1(y1);
 	m_rect.setPxlWidth();
-	compute();
-
 }
 void Cmset::DoubleThreshold()
 {
@@ -95,7 +97,6 @@ void Cmset::HalfThreshold()
 	if (t < 10) 
 		t = 10;
 	SetThreshold(t);
-	compute();
 }
 void Cmset::prev()
 {
@@ -106,7 +107,6 @@ void Cmset::prev()
 		--m_histIndex;
 	}
 	m_rect = *m_histIndex;
-	compute();
 }
 void Cmset::next()
 {
@@ -117,7 +117,6 @@ void Cmset::next()
 		--m_histIndex;
 	}
 	m_rect = *m_histIndex;
-	compute();
 }
 void Cmset::copyPrivateData(const Cmset& rhs)
 {
@@ -138,7 +137,11 @@ static struct WorkerData
 	int y;
 	int w;
 	int l;
-} wData;
+} wData[16];
+static bool arrCompDone[16];
+static DWORD arrThreadID[16];
+static HANDLE arrThreadHandle[16];
+
 DWORD WINAPI TFunc(LPVOID lpParam)
 {
 	WorkerData* pParams = (WorkerData*)lpParam;
@@ -148,37 +151,41 @@ DWORD WINAPI TFunc(LPVOID lpParam)
 }
 void Cmset::compute(long newThreshold)
 {
+	dprintf(L"Compute()");
 	bool bNewThresh = (newThreshold > 0);
 	if (!bNewThresh)
 		newThreshold = m_threshold;
 	m_step = m_rect.pxlWidth();
+	
+	for (int i = 0; i < 4; ++i)
+	{
+		for (int j = 0; j < 4; ++j)
+		{
+			//dprintf(L"n threads = %d", m_nComputeThreads);
+			int iWdata = i * 4 + j;
+			wData[iWdata].r = m_rect;
+			wData[iWdata].bNewThresh = bNewThresh;
+			wData[iWdata].pMSet = this;
+			wData[iWdata].x = (i * m_rect.width()) / 4;
+			wData[iWdata].y = (j * m_rect.length()) / 4;
+			wData[iWdata].w = m_rect.width() / 4;
+			wData[iWdata].l = m_rect.length() / 4;
+			++m_nComputeThreads;
+			arrThreadHandle[iWdata] =
+				CreateThread(
+					NULL,
+					0,
+					TFunc,
+					&wData[iWdata],
+					0,
+					&arrThreadID[iWdata]);
+		}
+	}
+	dprintf(L"Compute threads running. Start a timer to refresh screen");
+	
+	
+	//WaitForMultipleObjects(16, arrThreadHandle, TRUE, INFINITE);
 
-	DWORD dwThreadID;
-	wData.r = m_rect;
-	wData.bNewThresh = bNewThresh;
-	wData.pMSet = this;
-	//wData.x = 0;
-	//wData.y = 0;
-	//wData.w = m_rect.width();
-	//wData.l = m_rect.length();
-	wData.x = m_rect.width() / 4;
-	wData.y = m_rect.length() / 4;
-	wData.w = m_rect.width() / 2;
-	wData.l = m_rect.length() / 2;
-
-	WorkerData* p = &wData;
-	dprintf(L"Creating worker thread");
-	HANDLE hThread = 
-		CreateThread(
-			NULL,
-			0,
-			TFunc,
-			p,
-			0,
-			&dwThreadID);
-	WaitForSingleObject(hThread, INFINITE);
-	dprintf(L"Worker thread complete.");
-	//computeWorker(m_rect, bNewThresh);
 }
 inline long Cmset::value(double& nReal, double& nImag)
 {
@@ -222,10 +229,7 @@ inline long Cmset::value(double& nReal, double& nImag)
 		a = nexta;
 
 	} while (a*a + b*b < 4 && ++n < m_threshold);
-	//if (n == m_threshold)
-	//{
-	//	a = 0;
-	//}
+
 	return n;
 }
 void Cmset::computeWorker(RealRect r, bool bNewThresh,
@@ -250,8 +254,10 @@ void Cmset::computeWorker(RealRect r, bool bNewThresh,
 			size_t index = iy*m_rect.width() + ix;
 			m_counts[index] = n;
 		}
-	}
 
+	}
+	//dprintf(L"compute finished post WM_USER+1 message");
+	decrementNCompThreads();
 }
 
 #if 0
@@ -357,4 +363,11 @@ void Cmset::setColorMap()
 	int light = 256 - dark;
 	//m_colorMap[m_threshold] = RGB(dark, dark, dark);
 	m_colorMap[m_threshold] = RGB(light, light, light);
+}
+
+void Cmset::reallocTheCounts()
+{
+	int nPixels = m_rect.area();
+	m_counts = new long[nPixels];
+	memset(m_counts, 0, nPixels * sizeof(long));
 }
