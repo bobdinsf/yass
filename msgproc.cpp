@@ -24,7 +24,8 @@ static bool up = false;
 static RECT rbrBand;
 static RECT panRect;
 static RECT clientR;
-
+static UINT_PTR nRefreshTimerID = 1000;
+static const UINT nRefreshMsecs = 50;
 enum timers
 {
 	eDblClkTimer,
@@ -32,15 +33,45 @@ enum timers
 void doMouseBusiness(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam);
 void doZoomOut();
 void doZoomIn();
-
+void startRefresh(HWND hWnd)
+{
+	if (nRefreshTimerID != SetTimer(hWnd, nRefreshTimerID, nRefreshMsecs, NULL))
+	{
+		dprintf(L"Failed to start timer");
+	}
+	dprintf(L"Started timer %d", nRefreshTimerID);
+}
 LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 {
+	static int dbgCount = 0;
 	int wmId, wmEvent;
 	PAINTSTRUCT ps;
 	HDC hdc;
 
 	switch (message)
 	{
+	case WM_USER + 1:
+		//g_pmz->decrementNCompThreads();
+		//dprintf(L"nComputeThreads = %d", g_pmz->getNComputeThreads());
+		//startRefresh();
+		break;
+	case WM_TIMER:
+		dprintf(L"Timer message tick = %d, n=%d",GetTickCount(), g_pmz->getNComputeThreads());
+		if (g_pmz->getNComputeThreads() > 0)
+		{
+			startRefresh(hWnd);
+		}
+		else
+		{
+			dprintf(L"KillTimer %d", nRefreshTimerID);
+			if (!KillTimer(hWnd, nRefreshTimerID))
+			{
+				dprintf(L"KillTimer failed:  %d", GetLastError());
+			}
+			nRefreshTimerID = 0;
+		}
+		InvalidateRect(hWnd, NULL, FALSE);
+		break;
 	case WM_COMMAND:
 		wmId    = LOWORD(wParam);
 		wmEvent = HIWORD(wParam);
@@ -55,22 +86,32 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 			break;
 		case ID_ZOOM_OUT:
 			doZoomOut();
+			g_pmz->compute();
+			startRefresh(hWnd);
 			InvalidateRect(hWnd,NULL,FALSE);
 			break;
 		case ID_ZOOM_IN:
 			doZoomIn();
+			g_pmz->compute();
+			startRefresh(hWnd);
 			InvalidateRect(hWnd,NULL,FALSE);
 			break;
 		case ID_ZOOM_RESET:
 			g_pmz->set(-2.0,-2.0,2.0,2.0);
+			g_pmz->compute();
+			startRefresh(hWnd);
 			InvalidateRect(hWnd,NULL,FALSE);
 			break;
 		case ID_THRESHOLD_HALF:
 			g_pmz->HalfThreshold();
+			g_pmz->compute();
+			startRefresh(hWnd);
 			InvalidateRect(hWnd,NULL,FALSE);
 			break;
 		case ID_THRESHOLD_DOUBLE:
 			g_pmz->DoubleThreshold();
+			g_pmz->compute();
+			startRefresh(hWnd);
 			InvalidateRect(hWnd,NULL,FALSE);
 			break;
 		default:
@@ -80,26 +121,30 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 
 	case WM_KEYDOWN:
 		{
+			bool bNeedRefresh = true;
 			switch (wParam)
 			{
 				case VK_LEFT:
 					g_pmz->prev();
-					InvalidateRect(hWnd,NULL,FALSE);
 					break;
 				case VK_RIGHT:
 					g_pmz->next();
-					InvalidateRect(hWnd,NULL,FALSE);
 					break;
 				case VK_UP:
 					g_pmz->DoubleThreshold();
-					InvalidateRect(hWnd,NULL,FALSE);
 					break;
 				case VK_DOWN:
 					g_pmz->HalfThreshold();
-					InvalidateRect(hWnd,NULL,FALSE);
 					break;
 				default:
+					bNeedRefresh = false;
 					break;
+			}
+			if (bNeedRefresh)
+			{
+				g_pmz->compute();
+				startRefresh(hWnd);
+				InvalidateRect(hWnd, NULL, FALSE);
 			}
 		}
 		break;
@@ -114,7 +159,13 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 		break;
 	case WM_SIZE:
 		{
-			g_pmz->resize(LOWORD(lParam),HIWORD(lParam));
+			if (g_pmz->getNComputeThreads() == 0)
+			{
+				g_pmz->resize(LOWORD(lParam),HIWORD(lParam));
+			}
+			g_pmz->compute();
+			startRefresh(hWnd);
+			InvalidateRect(hWnd, NULL, FALSE);
 		}
 		break;
     case WM_CREATE:
@@ -123,16 +174,20 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 			g_pmz = new Cmset;
 			g_pmz->resize(pcs->cx,pcs->cy);
 			g_pmz->SetThreshold(100);
+			g_pmz->SetWindowHandle(hWnd);
+			g_pmz->compute();
+			startRefresh(hWnd);
 		}
 	    break;
 	case WM_PAINT:
 		{
+			dprintf(L"WM_PAINT:  %d",++dbgCount);
 			hdc = BeginPaint(hWnd, &ps);
 			HDC hdcsrc = g_pmz->GetBitmap(hdc);
 			BitBlt(hdc,0,0,g_pmz->GetWidth(),g_pmz->GetLength(),hdcsrc,0,0,SRCCOPY);
 
 			//TCHAR s[200];
-			//_stprintf(s,L"%d,%d,%d,%d:x0=%f,y0=%f,x1=%f,y1=%f",rbrBand.left,rbrBand.top,rbrBand.right,rbrBand.bottom,g_pmz->GetX0(),g_mz.GetY0(),g_pmz->GetX1(),g_pmz->GetY1());
+			//_stprintf(s,L"%d,%d,%d,%d:x0=%f,y0=%f,x1=%f,y1=%f",rbrBand.left,rbrBand.top,rbrBand.right,rbrBand.bottom,g_pmz->GetX0(),g_pmz->GetY0(),g_pmz->GetX1(),g_pmz->GetY1());
 			//RECT clientR;
 			//GetClientRect(hWnd,&clientR);
 			//DrawText(hdc,s,-1, &clientR,DT_LEFT);
@@ -208,7 +263,8 @@ void doMouseBusiness(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 			zrect.bottom = y + (l / 2);
 			if (zrect.bottom >= l) zrect.right = l - 1;
 			g_pmz->zoom(zrect);
-			InvalidateRect(hWnd,NULL,FALSE);
+			g_pmz->compute();
+			InvalidateRect(hWnd, NULL, FALSE);
 		}
 		break;
 	case WM_LBUTTONDOWN:
@@ -240,7 +296,9 @@ void doMouseBusiness(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 			if (rbrBand.bottom - rbrBand.top > 10)
 			{
 				g_pmz->zoom(rbrBand);
-				InvalidateRect(hWnd,NULL,FALSE);
+				g_pmz->compute();
+				startRefresh(hWnd);
+				InvalidateRect(hWnd, NULL, FALSE);
 			}
 		}
 		break;
@@ -259,7 +317,9 @@ void doMouseBusiness(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 	case WM_RBUTTONUP:
 		{
 			doZoomOut();
-			InvalidateRect(hWnd,NULL,FALSE);
+			g_pmz->compute();
+			startRefresh(hWnd);
+			InvalidateRect(hWnd, NULL, FALSE);
 		}
 		break;
 	default:
@@ -277,7 +337,6 @@ void doZoomOut()
 	double y1 = g_pmz->GetY1();
 	double h = y1 - y0;
 	g_pmz->set(x0 - w/2,y0 - h/2,x1 + w/2,y1 + h/2);
-			
 }
 
 void doZoomIn()
@@ -285,9 +344,9 @@ void doZoomIn()
 	int w = g_pmz->GetWidth();
 	int h = g_pmz->GetLength();
 	RECT zrect;
-	zrect.left = w/4;
-	zrect.right = 3*w/4;
-	zrect.top = h/4;
-	zrect.bottom = 3*h/4;
+	zrect.left = w / 4;
+	zrect.right = 3 * w / 4;
+	zrect.top = h / 4;
+	zrect.bottom = 3 * h / 4;
 	g_pmz->zoom(zrect);
 }

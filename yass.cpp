@@ -34,6 +34,15 @@ int APIENTRY _tWinMain(HINSTANCE hInstance,
 #ifdef _DEBUG
 	Img img;
 	Img* p = &img;
+	//OutputDebugString(__FILE__ L" " __DATE__ L"," __TIME__);
+	
+	wchar_t f[255];
+	wchar_t d[255];
+	wchar_t t[255];
+	MultiByteToWideChar(CP_ACP, MB_PRECOMPOSED, __FILE__, -1, f, sizeof(f));
+	MultiByteToWideChar(CP_ACP, MB_PRECOMPOSED, __DATE__, -1, d, sizeof(d));
+	MultiByteToWideChar(CP_ACP, MB_PRECOMPOSED, __TIME__, -1, t, sizeof(t));
+	dprintf(L"%s compiled %s at %s.", f, d, t);
 #endif
 
 	if (!unitTestsForRealRect())
@@ -122,7 +131,7 @@ BOOL InitInstance(HINSTANCE hInstance, int nCmdShow)
    hInst = hInstance; // Store instance handle in our global variable
 
    hWnd = CreateWindow(szWindowClass, szTitle, WS_OVERLAPPEDWINDOW,
-      CW_USEDEFAULT, CW_USEDEFAULT, 500, 500, NULL, NULL, hInstance, NULL);
+      CW_USEDEFAULT, CW_USEDEFAULT, Cmset::nInitWidth, Cmset::nInitLength, NULL, NULL, hInstance, NULL);
    if (!hWnd)
    {
       return FALSE;
