@@ -3,7 +3,7 @@
 const int Cmset::maxIntensity = 100;  // % of color intensity to use. 
 const int Cmset::nInitWidth = 1000;
 const int Cmset::nInitLength = 1000;
-const int Cmset::m_timerID = 5;
+const int Cmset::nInitialThreshold = 1000;
 void Cmset::init()	
 {
 	m_nComputeThreads = 0;
@@ -89,7 +89,6 @@ void Cmset::DoubleThreshold()
 {
 	// Neet to check for overflow
 	SetThreshold(m_threshold *= 2);
-	compute();
 }
 void Cmset::HalfThreshold()
 {

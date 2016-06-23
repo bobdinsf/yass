@@ -24,7 +24,7 @@ static bool up = false;
 static RECT rbrBand;
 static RECT panRect;
 static RECT clientR;
-static UINT_PTR nRefreshTimerID = 1000;
+static UINT_PTR nRefreshTimerID = 0xbd;
 static const UINT nRefreshMsecs = 50;
 enum timers
 {
@@ -88,32 +88,37 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 			doZoomOut();
 			g_pmz->compute();
 			startRefresh(hWnd);
-			InvalidateRect(hWnd,NULL,FALSE);
+			InvalidateRect(hWnd, NULL, FALSE);
 			break;
 		case ID_ZOOM_IN:
 			doZoomIn();
 			g_pmz->compute();
 			startRefresh(hWnd);
-			InvalidateRect(hWnd,NULL,FALSE);
+			InvalidateRect(hWnd, NULL, FALSE);
 			break;
 		case ID_ZOOM_RESET:
 			g_pmz->set(-2.0,-2.0,2.0,2.0);
 			g_pmz->compute();
 			startRefresh(hWnd);
-			InvalidateRect(hWnd,NULL,FALSE);
+			InvalidateRect(hWnd, NULL, FALSE);
 			break;
 		case ID_THRESHOLD_HALF:
 			g_pmz->HalfThreshold();
 			g_pmz->compute();
 			startRefresh(hWnd);
-			InvalidateRect(hWnd,NULL,FALSE);
+			InvalidateRect(hWnd, NULL, FALSE);
 			break;
 		case ID_THRESHOLD_DOUBLE:
 			g_pmz->DoubleThreshold();
 			g_pmz->compute();
 			startRefresh(hWnd);
-			InvalidateRect(hWnd,NULL,FALSE);
+			InvalidateRect(hWnd, NULL, FALSE);
 			break;
+		case ID_THRESHOLD_RESET:
+			g_pmz->SetThreshold(g_pmz->nInitialThreshold);
+			g_pmz->compute();
+			startRefresh(hWnd);
+			InvalidateRect(hWnd, NULL, FALSE);
 		default:
 			return DefWindowProc(hWnd, message, wParam, lParam);
 		}
@@ -173,7 +178,7 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 			LPCREATESTRUCT pcs = (CREATESTRUCT*)lParam;
 			g_pmz = new Cmset;
 			g_pmz->resize(pcs->cx,pcs->cy);
-			g_pmz->SetThreshold(100);
+			g_pmz->SetThreshold(g_pmz->nInitialThreshold);
 			g_pmz->SetWindowHandle(hWnd);
 			g_pmz->compute();
 			startRefresh(hWnd);

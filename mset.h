@@ -14,6 +14,7 @@ class Cmset
 public:
 	static const int nInitWidth;
 	static const int nInitLength;
+	static const int nInitialThreshold;
 
 	Cmset() : m_rect(nInitWidth, nInitLength, -2.0, -2.0, 2.0, 2.0),m_colorMap(0) { init(); }
 	Cmset(double x0, double y0, double x1, double y1, int width, int height)
