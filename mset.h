@@ -3,7 +3,7 @@
 #include <algorithm>
 #include <list>
 #include "RealRect.h"
-
+#include "ColorConfig.h"
 
 using namespace std;
 typedef std::pair<double,double> pt;
@@ -56,7 +56,10 @@ private:
 	long m_threshold;        // how many itteration to perform before deciding that point is in the set.
 	long* m_counts;
 	double m_step;
+	
+	ColorConfig m_colorConfig;
 	COLORREF* m_colorMap;
+
 	HBITMAP m_hbmmz;
 	static const int m_timerID;
 	static const int maxIntensity;

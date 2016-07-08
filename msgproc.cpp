@@ -50,11 +50,7 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 
 	switch (message)
 	{
-	case WM_USER + 1:
-		//g_pmz->decrementNCompThreads();
-		//dprintf(L"nComputeThreads = %d", g_pmz->getNComputeThreads());
-		//startRefresh();
-		break;
+
 	case WM_TIMER:
 		dprintf(L"Timer message tick = %d, n=%d",GetTickCount(), g_pmz->getNComputeThreads());
 		if (g_pmz->getNComputeThreads() > 0)
@@ -100,6 +96,7 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 			g_pmz->set(-2.0,-2.0,2.0,2.0);
 			g_pmz->compute();
 			startRefresh(hWnd);
+			g_pmz->SetThreshold(Cmset::nInitialThreshold);
 			InvalidateRect(hWnd, NULL, FALSE);
 			break;
 		case ID_THRESHOLD_HALF:

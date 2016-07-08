@@ -9,7 +9,7 @@ void Cmset::init()
 	m_nComputeThreads = 0;
 	reallocTheCounts();
 	dprintf(L"m_counts allocated for %d pixels at %x", m_rect.area(), m_counts);
-	m_threshold = 100;
+	m_threshold = nInitialThreshold;
 	setColorMap();
 	m_history.empty();
 	m_histIndex = m_history.begin();
@@ -331,6 +331,77 @@ void /*Cmset::computeWorker*/_f(RealRect r, bool bNewThresh,
 	}
 }
 #endif
+
+inline BYTE interpolate(int x, int x1, BYTE y1, int x2, BYTE y2)
+{
+	double m(double(y2 - y1) / double(x2 - x1));
+	double b = y1 - m*x1;
+	return (BYTE)(unsigned(m*x + b) & 0xFF);
+}
+
+void Cmset::setColorMap()
+{
+	int v = 500;
+	vector<ColorPoint> colorConfig;
+	colorConfig.push_back(ColorPoint(0, RGB(255, 0, 0)));
+#if 0
+	colorConfig.push_back(ColorPoint(3 * v / 8, RGB(127, 0, 127)));
+	colorConfig.push_back(ColorPoint(6 * v / 8, RGB(0, 127, 64)));
+	colorConfig.push_back(ColorPoint(3 * v / 8, RGB(0, 255, 0)));
+	colorConfig.push_back(ColorPoint(4 * v / 8, RGB(255, 255, 255)));
+
+	colorConfig.push_back(ColorPoint(5 * v / 8, RGB(255, 0, 255)));
+	colorConfig.push_back(ColorPoint(6 * v / 8, RGB(64, 64, 255)));
+	colorConfig.push_back(ColorPoint(7 * v / 8, RGB(77, 0166, 44)));
+#endif
+	colorConfig.push_back(ColorPoint(v - 1, RGB(255, 0, 255)));
+
+	if (colorConfig.size() < 2)
+	{
+		MessageBox(NULL, L"Not enough colors in config", L"Error", MB_ICONERROR);
+	}
+
+	delete[] m_colorMap;
+	m_colorMap = new COLORREF[m_threshold + 1];
+
+	size_t iConfigPoint = 0;
+	ColorPoint* thisPt = &colorConfig[iConfigPoint];
+	ColorPoint* nextPt = &colorConfig[iConfigPoint + 1];
+
+	for (int i = 0; i < m_threshold; ++i)
+	{
+#pragma warning(push)
+#pragma warning(disable : 4244)
+		m_colorMap[i] = RGB(
+			interpolate(i%v, thisPt->r(), thisPt->value, nextPt->r(), nextPt->value),
+			interpolate(i%v, thisPt->g(), thisPt->value, nextPt->g(), nextPt->value),
+			interpolate(i%v, thisPt->b(), thisPt->value, nextPt->b(), nextPt->value) );
+		m_colorMap[++i] = RGB(
+			5 + interpolate(i%v, thisPt->r(), thisPt->value, nextPt->r(), nextPt->value),
+			5 + interpolate(i%v, thisPt->g(), thisPt->value, nextPt->g(), nextPt->value),
+			5 + interpolate(i%v, thisPt->b(), thisPt->value, nextPt->b(), nextPt->value));
+#pragma warning(pop)
+		if (i >= nextPt->value)
+		{
+			if (iConfigPoint < (colorConfig.size() - 2))
+			{
+				// We are at a new point
+				++iConfigPoint;
+				thisPt = &colorConfig[iConfigPoint];
+				nextPt = &colorConfig[iConfigPoint + 1];
+			}
+			else
+			{
+				iConfigPoint = 0;
+				thisPt = &colorConfig[iConfigPoint];
+				nextPt = &colorConfig[iConfigPoint + 1];
+			}
+		}
+	}
+	// Fill in special color for value at the Threshold.
+	m_colorMap[m_threshold] = RGB(255,255,0);
+}
+#if 0
 void Cmset::setColorMap()
 {
 	int r1,g1,b1;
@@ -363,7 +434,7 @@ void Cmset::setColorMap()
 	//m_colorMap[m_threshold] = RGB(dark, dark, dark);
 	m_colorMap[m_threshold] = RGB(light, light, light);
 }
-
+#endif
 void Cmset::reallocTheCounts()
 {
 	int nPixels = m_rect.area();
