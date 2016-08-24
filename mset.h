@@ -3,25 +3,26 @@
 #include <algorithm>
 #include <list>
 #include "RealRect.h"
-
+#include "ColorConfig.h"
 
 using namespace std;
 typedef std::pair<double,double> pt;
 
 
-class Cmset
+class CMSet
 {
 public:
 	static const int nInitWidth;
 	static const int nInitLength;
+	static const int nInitialThreshold;
 
-	Cmset() : m_rect(nInitWidth, nInitLength, -2.0, -2.0, 2.0, 2.0),m_colorMap(0) { init(); }
-	Cmset(double x0, double y0, double x1, double y1, int width, int height)
+	CMSet() : m_rect(nInitWidth, nInitLength, -2.0, -2.0, 2.0, 2.0),m_colorMap(0) { init(); }
+	CMSet(double x0, double y0, double x1, double y1, int width, int height)
 		: m_rect(width, height, x0, y0, x1, y1), m_colorMap(0) { init(); }
 
-	Cmset(const Cmset& src);
-	Cmset& operator=(const Cmset& rhs);
-	~Cmset();
+	CMSet(const CMSet& src);
+	CMSet& operator=(const CMSet& rhs);
+	~CMSet();
 	void resize(int width, int length);
 	HDC GetBitmap(HDC& hdc);
 	int GetWidth()  { return m_rect.width(); }
@@ -55,14 +56,17 @@ private:
 	long m_threshold;        // how many itteration to perform before deciding that point is in the set.
 	long* m_counts;
 	double m_step;
+	
+	ColorConfig m_colorConfig;
 	COLORREF* m_colorMap;
+
 	HBITMAP m_hbmmz;
 	static const int m_timerID;
 	static const int maxIntensity;
 	void reallocTheCounts();
 	bool bRefreshTimerRunning;
 	void init();
-	void copyPrivateData(const Cmset& rhs);
+	void copyPrivateData(const CMSet& rhs);
 	long value(double& nReal, double& nImag);
 	void setColorMap(); 
 };

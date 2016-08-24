@@ -21,7 +21,21 @@ BOOL				InitInstance(HINSTANCE, int);
 LRESULT CALLBACK	WndProc(HWND, UINT, WPARAM, LPARAM);
 INT_PTR CALLBACK	About(HWND, UINT, WPARAM, LPARAM);
 //complex c2double ( 1.0, 1.0 );
-extern Cmset* g_pmz;
+extern CMSet* g_pmz;
+// Get the horizontal and vertical screen sizes in pixel
+void GetDesktopResolution(int& horizontal, int& vertical)
+{
+	RECT desktop;
+	// Get a handle to the desktop window
+	const HWND hDesktop = GetDesktopWindow();
+	// Get the size of screen to the variable desktop
+	GetWindowRect(hDesktop, &desktop);
+	// The top left corner will have coordinates (0,0)
+	// and the bottom right corner will have coordinates
+	// (horizontal, vertical)
+	horizontal = desktop.right;
+	vertical = desktop.bottom;
+}
 
 int APIENTRY _tWinMain(HINSTANCE hInstance,
                      HINSTANCE hPrevInstance,
@@ -31,6 +45,16 @@ int APIENTRY _tWinMain(HINSTANCE hInstance,
 	UNREFERENCED_PARAMETER(hPrevInstance);
 	UNREFERENCED_PARAMETER(lpCmdLine);
 
+	int iValue = GetSystemMetrics(SM_CMONITORS);
+	if (iValue > 0)
+	{
+		;
+	}
+	iValue = GetSystemMetrics(SM_CXVIRTUALSCREEN);
+	iValue = GetSystemMetrics(SM_CYVIRTUALSCREEN);
+	int horizontal = 0;
+	int vertical = 0;
+	GetDesktopResolution(horizontal, vertical);
 #ifdef _DEBUG
 	Img img;
 	Img* p = &img;
@@ -131,7 +155,7 @@ BOOL InitInstance(HINSTANCE hInstance, int nCmdShow)
    hInst = hInstance; // Store instance handle in our global variable
 
    hWnd = CreateWindow(szWindowClass, szTitle, WS_OVERLAPPEDWINDOW,
-      CW_USEDEFAULT, CW_USEDEFAULT, Cmset::nInitWidth, Cmset::nInitLength, NULL, NULL, hInstance, NULL);
+      CW_USEDEFAULT, CW_USEDEFAULT, CMSet::nInitWidth, CMSet::nInitLength, NULL, NULL, hInstance, NULL);
    if (!hWnd)
    {
       return FALSE;

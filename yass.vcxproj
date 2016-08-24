@@ -82,6 +82,7 @@
     <None Include="yass.ico" />
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="ColorConfig.h" />
     <ClInclude Include="img.h" />
     <ClInclude Include="mset.h" />
     <ClInclude Include="RealRect.h" />

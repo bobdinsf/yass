@@ -19,7 +19,7 @@
 #include <complex>
 #include <algorithm>
 #include <list>
-
+#include <vector>
 
 // TODO: reference additional headers your program requires here
 #include "mset.h"
