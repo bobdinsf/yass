@@ -18,7 +18,7 @@ extern INT_PTR CALLBACK	About(HWND, UINT, WPARAM, LPARAM);
 //  WM_DESTROY	- post a quit message and return
 //
 //h
-Cmset* g_pmz;
+CMSet* g_pmz;
 static bool down = false;
 static bool up = false;
 static RECT rbrBand;
@@ -96,7 +96,7 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 			g_pmz->set(-2.0,-2.0,2.0,2.0);
 			g_pmz->compute();
 			startRefresh(hWnd);
-			g_pmz->SetThreshold(Cmset::nInitialThreshold);
+			g_pmz->SetThreshold(CMSet::nInitialThreshold);
 			InvalidateRect(hWnd, NULL, FALSE);
 			break;
 		case ID_THRESHOLD_HALF:
@@ -173,7 +173,7 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
     case WM_CREATE:
 		{
 			LPCREATESTRUCT pcs = (CREATESTRUCT*)lParam;
-			g_pmz = new Cmset;
+			g_pmz = new CMSet;
 			g_pmz->resize(pcs->cx,pcs->cy);
 			g_pmz->SetThreshold(g_pmz->nInitialThreshold);
 			g_pmz->SetWindowHandle(hWnd);

@@ -1,10 +1,10 @@
 #include "stdafx.h"
 #include "yass.h"
-const int Cmset::maxIntensity = 100;  // % of color intensity to use. 
-const int Cmset::nInitWidth = 1000;
-const int Cmset::nInitLength = 1000;
-const int Cmset::nInitialThreshold = 1000;
-void Cmset::init()	
+const int CMSet::maxIntensity = 100;  // % of color intensity to use. 
+const int CMSet::nInitWidth = 1000;
+const int CMSet::nInitLength = 1000;
+const int CMSet::nInitialThreshold = 1000;
+void CMSet::init()	
 {
 	m_nComputeThreads = 0;
 	reallocTheCounts();
@@ -16,15 +16,15 @@ void Cmset::init()
 	bRefreshTimerRunning = false;
 }
 
-void Cmset::SetWindowHandle(HWND hWnd)
+void CMSet::SetWindowHandle(HWND hWnd)
 {
 	m_hWnd = hWnd;
 }
-Cmset::Cmset(const Cmset& src)
+CMSet::CMSet(const CMSet& src)
 {
 	*this = src;
 }
-Cmset& Cmset::operator=(const Cmset& rhs)
+CMSet& CMSet::operator=(const CMSet& rhs)
 {
 	if (this != &rhs)
 	{
@@ -32,12 +32,12 @@ Cmset& Cmset::operator=(const Cmset& rhs)
 	}
 	return *this;
 }
-Cmset::~Cmset()
+CMSet::~CMSet()
 {
 	delete [] m_counts;
 	delete [] m_colorMap;
 }
-void Cmset::resize(int width, int length)
+void CMSet::resize(int width, int length)
 {
 	if (m_rect.width() == width && m_rect.length() == length)
 		return;  // Mset size if OK.
@@ -46,7 +46,7 @@ void Cmset::resize(int width, int length)
 	reallocTheCounts();
 	dprintf(L"m_counts allocated for %d pixels at %x", m_rect.area(), m_counts);
 }
-HDC Cmset::GetBitmap(HDC& hdc)
+HDC CMSet::GetBitmap(HDC& hdc)
 {
 	int w = m_rect.width();
 	int l = m_rect.length();
@@ -66,17 +66,17 @@ HDC Cmset::GetBitmap(HDC& hdc)
 	}
 	return hdcmz;
 }
-void Cmset::zoom(RECT zrect)
+void CMSet::zoom(RECT zrect)
 {
 	m_history.push_back(m_rect);
 	m_rect.zoom(zrect.left,zrect.right,zrect.top,zrect.bottom);
 }
-void Cmset::SetThreshold(long n)
+void CMSet::SetThreshold(long n)
 {
 	m_threshold = n;
 	setColorMap();
 }
-void Cmset::set(double x0, double y0, double x1, double y1)
+void CMSet::set(double x0, double y0, double x1, double y1)
 {
 	m_history.push_back(m_rect);
 	m_rect.setX0(x0);
@@ -85,19 +85,19 @@ void Cmset::set(double x0, double y0, double x1, double y1)
 	m_rect.setY1(y1);
 	m_rect.setPxlWidth();
 }
-void Cmset::DoubleThreshold()
+void CMSet::DoubleThreshold()
 {
 	// Neet to check for overflow
 	SetThreshold(m_threshold *= 2);
 }
-void Cmset::HalfThreshold()
+void CMSet::HalfThreshold()
 {
 	long t = m_threshold /= 2;
 	if (t < 10) 
 		t = 10;
 	SetThreshold(t);
 }
-void Cmset::prev()
+void CMSet::prev()
 {
 	if (m_history.empty())
 		return;
@@ -107,7 +107,7 @@ void Cmset::prev()
 	}
 	m_rect = *m_histIndex;
 }
-void Cmset::next()
+void CMSet::next()
 {
 	if (m_history.empty())
 		return;
@@ -117,7 +117,7 @@ void Cmset::next()
 	}
 	m_rect = *m_histIndex;
 }
-void Cmset::copyPrivateData(const Cmset& rhs)
+void CMSet::copyPrivateData(const CMSet& rhs)
 {
 	m_rect = rhs.m_rect;
 	m_threshold = rhs.m_threshold;
@@ -128,10 +128,10 @@ void Cmset::copyPrivateData(const Cmset& rhs)
 static struct WorkerData
 {
 	WorkerData() : r(), bNewThresh(false), pMSet(0), x(0), y(0), w(0), l(0) {}
-	WorkerData(RealRect rect, bool b = false, Cmset* p = 0) : r(rect), bNewThresh(b), pMSet(p) {}
+	WorkerData(RealRect rect, bool b = false, CMSet* p = 0) : r(rect), bNewThresh(b), pMSet(p) {}
 	RealRect r;
 	bool bNewThresh;
-	Cmset* pMSet;
+	CMSet* pMSet;
 	int x;
 	int y;
 	int w;
@@ -148,7 +148,7 @@ DWORD WINAPI TFunc(LPVOID lpParam)
 		pParams->x,pParams->y,pParams->w,pParams->l);
 	return 0;
 }
-void Cmset::compute(long newThreshold)
+void CMSet::compute(long newThreshold)
 {
 	dprintf(L"Compute()");
 	bool bNewThresh = (newThreshold > 0);
@@ -186,7 +186,7 @@ void Cmset::compute(long newThreshold)
 	//WaitForMultipleObjects(16, arrThreadHandle, TRUE, INFINITE);
 
 }
-inline long Cmset::value(double& nReal, double& nImag)
+inline long CMSet::value(double& nReal, double& nImag)
 {
 	//complex<double> c(nReal,nImag);
 	//complex<double> z(0,0);
@@ -231,7 +231,7 @@ inline long Cmset::value(double& nReal, double& nImag)
 
 	return n;
 }
-void Cmset::computeWorker(RealRect r, bool bNewThresh,
+void CMSet::computeWorker(RealRect r, bool bNewThresh,
 	int x, int y, int w, int l)
 {
 	double fReal;
@@ -260,7 +260,7 @@ void Cmset::computeWorker(RealRect r, bool bNewThresh,
 }
 
 #if 0
-void /*Cmset::computeWorker*/_f(RealRect r, bool bNewThresh,
+void /*CMSet::computeWorker*/_f(RealRect r, bool bNewThresh,
 	int x, int y, int w, int l)
 {
 	dprintf(L"computeWorker([%d,%d],%d)", r.width(), r.length(), bNewThresh );
@@ -339,13 +339,14 @@ inline BYTE interpolate(int x, int x1, BYTE y1, int x2, BYTE y2)
 	return (BYTE)(unsigned(m*x + b) & 0xFF);
 }
 
-void Cmset::setColorMap()
+void CMSet::setColorMap()
 {
-	int v = 500;
+	int v = this->m_threshold;
+	int nStripyness = 0;
 	vector<ColorPoint> colorConfig;
-	colorConfig.push_back(ColorPoint(0, RGB(255, 0, 0)));
+	colorConfig.push_back(ColorPoint(    0, RGB(32 , 64,   128 )));
+//	colorConfig.push_back(ColorPoint(v / 2, RGB(0,   128, 255)));
 #if 0
-	colorConfig.push_back(ColorPoint(3 * v / 8, RGB(127, 0, 127)));
 	colorConfig.push_back(ColorPoint(6 * v / 8, RGB(0, 127, 64)));
 	colorConfig.push_back(ColorPoint(3 * v / 8, RGB(0, 255, 0)));
 	colorConfig.push_back(ColorPoint(4 * v / 8, RGB(255, 255, 255)));
@@ -354,7 +355,7 @@ void Cmset::setColorMap()
 	colorConfig.push_back(ColorPoint(6 * v / 8, RGB(64, 64, 255)));
 	colorConfig.push_back(ColorPoint(7 * v / 8, RGB(77, 0166, 44)));
 #endif
-	colorConfig.push_back(ColorPoint(v - 1, RGB(255, 0, 255)));
+	colorConfig.push_back(ColorPoint(v - 1, RGB(255, 255,  255)));
 
 	if (colorConfig.size() < 2)
 	{
@@ -377,9 +378,9 @@ void Cmset::setColorMap()
 			interpolate(i%v, thisPt->g(), thisPt->value, nextPt->g(), nextPt->value),
 			interpolate(i%v, thisPt->b(), thisPt->value, nextPt->b(), nextPt->value) );
 		m_colorMap[++i] = RGB(
-			5 + interpolate(i%v, thisPt->r(), thisPt->value, nextPt->r(), nextPt->value),
-			5 + interpolate(i%v, thisPt->g(), thisPt->value, nextPt->g(), nextPt->value),
-			5 + interpolate(i%v, thisPt->b(), thisPt->value, nextPt->b(), nextPt->value));
+			nStripyness + interpolate(i%v, thisPt->r(), thisPt->value, nextPt->r(), nextPt->value),
+			nStripyness + interpolate(i%v, thisPt->g(), thisPt->value, nextPt->g(), nextPt->value),
+			nStripyness + interpolate(i%v, thisPt->b(), thisPt->value, nextPt->b(), nextPt->value));
 #pragma warning(pop)
 		if (i >= nextPt->value)
 		{
@@ -402,7 +403,7 @@ void Cmset::setColorMap()
 	m_colorMap[m_threshold] = RGB(255,255,0);
 }
 #if 0
-void Cmset::setColorMap()
+void CMSet::setColorMap()
 {
 	int r1,g1,b1;
 	int r2,g2,b2;
@@ -435,7 +436,7 @@ void Cmset::setColorMap()
 	m_colorMap[m_threshold] = RGB(light, light, light);
 }
 #endif
-void Cmset::reallocTheCounts()
+void CMSet::reallocTheCounts()
 {
 	int nPixels = m_rect.area();
 	m_counts = new long[nPixels];
